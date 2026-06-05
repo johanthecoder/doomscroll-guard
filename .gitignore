@@ -30,3 +30,10 @@ env/
 *.swo
 *~
 .DS_Store
+.env
+.env.local
+*.log
+logs/
+models/*.pt
+models/*.onnx
+assets/*.wav
