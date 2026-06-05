@@ -1,4 +1,5 @@
 from __future__ import annotations
+import logging
 import time
 import threading
 import numpy as np
@@ -7,6 +8,8 @@ import flet as ft
 from ui.helpers import frame_to_b64, seconds_to_hms
 from session import SessionState, load_streak
 from config import Config
+
+_log = logging.getLogger(__name__)
 
 
 def build_dashboard(page: ft.Page, session, config: Config) -> ft.Control:
@@ -89,22 +92,36 @@ def build_dashboard(page: ft.Page, session, config: Config) -> ft.Control:
     pause_btn.on_click = _toggle_pause
 
     def _update_loop():
+        _last_stats_at = 0.0
         while True:
             time.sleep(0.2)
-            if session.state == SessionState.ACTIVE:
-                try:
-                    elapsed = time.time() - session._start_time
-                    timer_text.value = seconds_to_hms(elapsed)
-                    frame = session._camera_monitor.latest_frame
-                    if frame is not None:
-                        camera_img.src_base64 = frame_to_b64(frame)
-                    _refresh_counts()
-                    streak = load_streak(session._streak_path)
-                    if streak:
-                        streak_text.value = f"🔥 {streak} day streak"
-                    page.update()
-                except Exception:
-                    break
+            if session.state != SessionState.ACTIVE:
+                continue
+            try:
+                now = time.time()
+
+                # Camera feed — every 200ms, update only that control
+                frame = session._camera_monitor.latest_frame
+                if frame is not None:
+                    camera_img.src_base64 = frame_to_b64(frame)
+                    camera_img.update()
+
+                # Stats — every 1s to avoid hammering the event queue
+                if now - _last_stats_at >= 1.0:
+                    _last_stats_at = now
+                    timer_text.value = seconds_to_hms(now - session._start_time)
+                    timer_text.update()
+                    new_screen = f"Screen:  {session._screen_violations}"
+                    new_camera = f"Camera:  {session._camera_violations}"
+                    if screen_count.value != new_screen:
+                        screen_count.value = new_screen
+                        screen_count.update()
+                    if camera_count.value != new_camera:
+                        camera_count.value = new_camera
+                        camera_count.update()
+            except Exception as e:
+                _log.warning("_update_loop error: %s", e)
+                continue
 
     threading.Thread(target=_update_loop, daemon=True).start()
 
