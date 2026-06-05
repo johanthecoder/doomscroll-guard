@@ -1,0 +1,11 @@
+flet>=0.24
+ultralytics>=8.0
+opencv-python>=4.9
+pywin32>=306
+uiautomation>=2.0
+plyer>=2.1
+pygame>=2.5
+psutil>=5.9
+pillow>=10.0
+pytest>=8.0
+pytest-mock>=3.14
