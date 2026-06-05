@@ -5,7 +5,7 @@ import numpy as np
 import flet as ft
 
 from ui.helpers import frame_to_b64, seconds_to_hms
-from session import SessionState
+from session import SessionState, load_streak
 from config import Config
 
 
@@ -99,7 +99,7 @@ def build_dashboard(page: ft.Page, session, config: Config) -> ft.Control:
                     if frame is not None:
                         camera_img.src_base64 = frame_to_b64(frame)
                     _refresh_counts()
-                    streak = getattr(session, '_streak', 0)
+                    streak = load_streak(session._streak_path)
                     if streak:
                         streak_text.value = f"🔥 {streak} day streak"
                     page.update()

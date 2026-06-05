@@ -39,14 +39,16 @@ def main() -> None:
     engine = InterventionEngine(config, on_nudge=on_nudge, on_aggro=on_aggro)
     session = Session(config, screen_monitor, camera_monitor, engine)
 
-    # Wrap screen violation to track last hwnd for aggro window closing
+    # Wrap session._on_screen_violation to track last hwnd for aggro window closing.
+    # Must patch the session method (not screen_monitor._on_violation directly) because
+    # session.start() overwrites screen_monitor._on_violation with self._on_screen_violation.
     _orig_screen_violation = session._on_screen_violation
 
     def _screen_violation_with_hwnd(v):
         last_screen_hwnd[0] = v.hwnd
         _orig_screen_violation(v)
 
-    screen_monitor._on_violation = _screen_violation_with_hwnd
+    session._on_screen_violation = _screen_violation_with_hwnd
 
     app_main = build_app(session, config)
     ft.app(target=app_main)
