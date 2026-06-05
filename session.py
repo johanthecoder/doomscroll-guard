@@ -152,3 +152,48 @@ class Session:
                 f.write(json.dumps(entry) + "\n")
         except Exception as e:
             _log.warning("Failed to write session log: %s", e)
+
+
+class PomodoroPhase(Enum):
+    FOCUS = "focus"
+    BREAK = "break"
+
+
+class PomodoroTimer:
+    def __init__(
+        self,
+        focus_minutes: float,
+        break_minutes: float,
+        on_break: Callable[[], None],
+        on_focus: Callable[[], None],
+    ):
+        self.phase = PomodoroPhase.FOCUS
+        self._focus_secs = focus_minutes * 60
+        self._break_secs = break_minutes * 60
+        self._on_break = on_break
+        self._on_focus = on_focus
+        self._stop = threading.Event()
+        self._thread: threading.Thread | None = None
+
+    def start(self) -> None:
+        self._stop.clear()
+        self._thread = threading.Thread(target=self._loop, daemon=True)
+        self._thread.start()
+
+    def stop(self) -> None:
+        self._stop.set()
+        if self._thread:
+            self._thread.join(timeout=5)
+
+    def _loop(self) -> None:
+        while not self._stop.is_set():
+            self._stop.wait(self._focus_secs)
+            if self._stop.is_set():
+                break
+            self.phase = PomodoroPhase.BREAK
+            self._on_break()
+            self._stop.wait(self._break_secs)
+            if self._stop.is_set():
+                break
+            self.phase = PomodoroPhase.FOCUS
+            self._on_focus()
