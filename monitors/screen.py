@@ -82,9 +82,24 @@ class ScreenMonitor:
             thread.join(timeout=5)
 
     def _loop(self) -> None:
-        while not self._stop.is_set():
-            self._check()
-            self._stop.wait(timeout=2.0)
+        # uiautomation requires COM initialized on each thread
+        if _HAS_UIAUTOMATION:
+            try:
+                import comtypes
+                comtypes.CoInitialize()
+            except Exception as e:
+                _log.debug("CoInitialize failed: %s", e)
+        try:
+            while not self._stop.is_set():
+                self._check()
+                self._stop.wait(timeout=2.0)
+        finally:
+            if _HAS_UIAUTOMATION:
+                try:
+                    import comtypes
+                    comtypes.CoUninitialize()
+                except Exception:
+                    pass
 
     def _check(self) -> None:
         try:
