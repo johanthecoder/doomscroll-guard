@@ -14,6 +14,13 @@ def test_is_blocked_domain_matches():
 def test_is_blocked_domain_no_match():
     config = Config(blocked_domains=["instagram.com"])
     assert is_blocked_domain("https://github.com", config) is False
+    # IMPORTANT: x.com should NOT match example.com
+    config2 = Config(blocked_domains=["x.com"])
+    assert is_blocked_domain("https://example.com", config2) is False
+
+def test_is_blocked_domain_subdomain():
+    config = Config(blocked_domains=["reddit.com"])
+    assert is_blocked_domain("https://old.reddit.com/r/python", config) is True
 
 def test_is_blocked_domain_empty_url():
     assert is_blocked_domain("", Config()) is False

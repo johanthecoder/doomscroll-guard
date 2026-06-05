@@ -1,4 +1,5 @@
 from __future__ import annotations
+import logging
 import time
 import threading
 from typing import Callable
@@ -10,6 +11,15 @@ import psutil
 from config import Config
 from types_ import ScreenViolation
 
+_log = logging.getLogger(__name__)
+
+try:
+    import uiautomation as _auto
+    _HAS_UIAUTOMATION = True
+except ImportError:
+    _auto = None
+    _HAS_UIAUTOMATION = False
+
 
 def get_process_name(hwnd: int) -> str:
     try:
@@ -20,9 +30,10 @@ def get_process_name(hwnd: int) -> str:
 
 
 def get_browser_url(hwnd: int) -> str | None:
+    if not _HAS_UIAUTOMATION:
+        return None
     try:
-        import uiautomation as auto
-        win = auto.ControlFromHandle(hwnd)
+        win = _auto.ControlFromHandle(hwnd)
         for name in ("Address and search bar", "urlbar-input"):
             bar = win.EditControl(searchDepth=12, Name=name)
             if bar.Exists(0.1):
@@ -35,7 +46,16 @@ def get_browser_url(hwnd: int) -> str | None:
 def is_blocked_domain(url: str, config: Config) -> bool:
     if not url:
         return False
-    return any(domain in url for domain in config.blocked_domains)
+    try:
+        from urllib.parse import urlparse
+        parsed = urlparse(url if "://" in url else f"https://{url}")
+        hostname = (parsed.hostname or "").lower()
+        return any(
+            hostname == domain or hostname.endswith(f".{domain}")
+            for domain in config.blocked_domains
+        )
+    except Exception:
+        return any(domain in url for domain in config.blocked_domains)
 
 
 class ScreenMonitor:
@@ -44,16 +64,22 @@ class ScreenMonitor:
         self._on_violation = on_violation
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
+        self._lock = threading.Lock()
 
     def start(self) -> None:
-        self._stop.clear()
-        self._thread = threading.Thread(target=self._loop, daemon=True)
-        self._thread.start()
+        with self._lock:
+            if self._thread and self._thread.is_alive():
+                return
+            self._stop.clear()
+            self._thread = threading.Thread(target=self._loop, daemon=True)
+            self._thread.start()
 
     def stop(self) -> None:
         self._stop.set()
-        if self._thread:
-            self._thread.join(timeout=5)
+        with self._lock:
+            thread = self._thread
+        if thread:
+            thread.join(timeout=5)
 
     def _loop(self) -> None:
         while not self._stop.is_set():
@@ -69,7 +95,10 @@ class ScreenMonitor:
             # Check native blocked app
             if any(app.lower() in process for app in self._config.blocked_apps):
                 self._on_violation(ScreenViolation(
-                    url=process, app_name=process, hwnd=hwnd, timestamp=time.time()
+                    url="",  # no URL for native app violations
+                    app_name=process,
+                    hwnd=hwnd,
+                    timestamp=time.time(),
                 ))
                 return
 
@@ -79,5 +108,5 @@ class ScreenMonitor:
                 self._on_violation(ScreenViolation(
                     url=url, app_name=process, hwnd=hwnd, timestamp=time.time()
                 ))
-        except Exception:
-            pass
+        except Exception as e:
+            _log.debug("_check() error: %s", e)
