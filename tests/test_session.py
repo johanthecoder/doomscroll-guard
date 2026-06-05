@@ -50,3 +50,27 @@ def test_streak_save_and_load(tmp_path):
     path = str(tmp_path / "streak.json")
     save_streak(5, path)
     assert load_streak(path) == 5
+
+
+def test_clean_session_increments_streak(tmp_path):
+    streak_path = str(tmp_path / "streak.json")
+    save_streak(3, streak_path)
+    s = Session(Config(), MagicMock(), MagicMock(), MagicMock(),
+                streak_path=streak_path)
+    s.start()
+    stats = s.stop()
+    assert stats.streak_days == 4
+    assert load_streak(streak_path) == 4
+
+
+def test_violated_session_resets_streak(tmp_path):
+    streak_path = str(tmp_path / "streak.json")
+    save_streak(5, streak_path)
+    s = Session(Config(), MagicMock(), MagicMock(), MagicMock(),
+                streak_path=streak_path)
+    s.start()
+    from types_ import ScreenViolation
+    s._on_screen_violation(ScreenViolation("instagram.com", "chrome.exe", 0, time.time()))
+    stats = s.stop()
+    assert stats.streak_days == 0
+    assert load_streak(streak_path) == 0

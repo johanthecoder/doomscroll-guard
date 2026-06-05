@@ -97,12 +97,16 @@ class Session:
             self.state = SessionState.IDLE
             duration = now - self._start_time
             self._update_longest_clean(now)
+            current_streak = load_streak(self._streak_path)
+            clean = self._screen_violations == 0 and self._camera_violations == 0
+            new_streak = current_streak + 1 if clean else 0
+            save_streak(new_streak, self._streak_path)
             stats = SessionStats(
                 duration_seconds=duration,
                 screen_violations=self._screen_violations,
                 camera_violations=self._camera_violations,
                 longest_clean_seconds=self._longest_clean,
-                streak_days=load_streak(self._streak_path),
+                streak_days=new_streak,
             )
 
         self._write_log(stats)
