@@ -66,8 +66,8 @@ def _extract_wrists(results) -> tuple[np.ndarray | None, np.ndarray | None]:
             try:
                 kpts = r.keypoints.xyn[0].cpu().numpy()
                 return kpts[9], kpts[10]
-            except Exception:
-                pass
+            except Exception as e:
+                _log.debug("_extract_wrists() error: %s", e)
     return None, None
 
 
@@ -143,10 +143,10 @@ class CameraMonitor:
                             wrist_dist = math.sqrt((w[0] - cx) ** 2 + (w[1] - cy) ** 2)
                             break
                 self._on_violation(CameraViolation(
-                    confidence=float(det_results[0].boxes[0].conf[0]) if det_results[0].boxes else 0.0,
+                    confidence=float(det_results[0].boxes[0].conf[0]) if (det_results and det_results[0].boxes and len(det_results[0].boxes) > 0) else 0.0,
                     bbox=tuple(phone_box.tolist()) if phone_box is not None else (0.0, 0.0, 0.0, 0.0),
                     wrist_dist=wrist_dist,
                     timestamp=time.time(),
                 ))
         except Exception as e:
-            _log.debug("_process_frame() error: %s", e)
+            _log.warning("_process_frame() error: %s", e)
