@@ -79,6 +79,7 @@ class CameraMonitor:
         self._lock = threading.Lock()
         self._thread: threading.Thread | None = None
         self.latest_frame: np.ndarray | None = None
+        self._pending_frame: np.ndarray | None = None
         self._model_detect = None
         self._model_pose = None
 
@@ -112,17 +113,31 @@ class CameraMonitor:
         if not cap.isOpened():
             _log.error("Could not open webcam (VideoCapture(0))")
             return
+        # Run YOLO inference in a separate thread so capture stays smooth
+        _infer_thread = threading.Thread(target=self._infer_loop, daemon=True)
+        _infer_thread.start()
         try:
             while not self._stop.is_set():
                 ret, frame = cap.read()
                 if not ret:
-                    self._stop.wait(0.5)
+                    self._stop.wait(0.1)
                     continue
-                self.latest_frame = frame  # raw feed visible immediately
-                self._process_frame(frame)
-                self._stop.wait(0.2)
+                self.latest_frame = frame  # always fresh, unblocked
+                self._pending_frame = frame
+                self._stop.wait(0.033)  # ~30fps capture
         finally:
             cap.release()
+
+    def _infer_loop(self) -> None:
+        _last_infer = 0.0
+        while not self._stop.is_set():
+            frame = self._pending_frame
+            now = time.time()
+            if frame is not None and now - _last_infer >= 1.0:
+                _last_infer = now
+                self._pending_frame = None
+                self._process_frame(frame)
+            self._stop.wait(0.05)
 
     def _process_frame(self, frame: np.ndarray) -> None:
         try:
