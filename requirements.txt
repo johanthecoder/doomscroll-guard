@@ -1,7 +1,7 @@
 # Requires Python 3.9+
 flet>=0.24
 ultralytics>=8.0
-opencv-python>=4.9
+opencv-python>=4.10
 pywin32>=306,<400
 uiautomation>=2.0,<3.0
 plyer>=2.1
