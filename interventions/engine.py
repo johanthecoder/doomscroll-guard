@@ -47,9 +47,9 @@ class InterventionEngine:
         with self._lock:
             if self._thread and self._thread.is_alive():
                 return
-        self._stop.clear()
-        self._thread = threading.Thread(target=self._loop, daemon=True)
-        self._thread.start()
+            self._stop.clear()
+            self._thread = threading.Thread(target=self._loop, daemon=True)
+            self._thread.start()
 
     def stop(self) -> None:
         self._stop.set()
@@ -95,6 +95,12 @@ class InterventionEngine:
 
             elif self.state == EngineState.COOLDOWN:
                 if now - self._state_entered_at >= self._config.cooldown_seconds:
-                    self.state = EngineState.CLEAN
-                    self._state_entered_at = 0.0
-                    self._last_violation_at = None
+                    # If a new violation arrived during cooldown, go to GRACE not CLEAN
+                    if (self._last_violation_at is not None and
+                            now - self._last_violation_at < self._config.exit_grace_seconds):
+                        self.state = EngineState.GRACE
+                        self._state_entered_at = now
+                    else:
+                        self.state = EngineState.CLEAN
+                        self._state_entered_at = 0.0
+                        self._last_violation_at = None

@@ -71,6 +71,26 @@ def test_aggro_to_cooldown_to_clean():
     assert engine.state == EngineState.AGGRO
     engine._tick()
     assert engine.state == EngineState.COOLDOWN
+    # Age out the last violation so no fresh violation is present during cooldown
+    engine._last_violation_at -= 2  # past exit_grace_seconds=1
     engine._state_entered_at -= 3  # past cooldown_seconds=2
     engine._tick()
     assert engine.state == EngineState.CLEAN
+
+
+def test_violation_during_cooldown_transitions_to_grace():
+    engine, nudge, aggro = make_engine()
+    # Get to COOLDOWN state
+    engine.report_violation()
+    engine._state_entered_at -= 3
+    engine._tick()  # → NUDGED
+    engine.report_violation()
+    engine._state_entered_at -= 4
+    engine._tick()  # → AGGRO
+    engine._tick()  # → COOLDOWN
+    # Report violation during cooldown
+    engine.report_violation()
+    # Fast-forward past cooldown
+    engine._state_entered_at -= 3
+    engine._tick()  # Should go to GRACE, not CLEAN
+    assert engine.state == EngineState.GRACE
