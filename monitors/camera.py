@@ -109,12 +109,16 @@ class CameraMonitor:
             _log.error("Failed to load YOLO models: %s", e)
             return
         cap = cv2.VideoCapture(0)
+        if not cap.isOpened():
+            _log.error("Could not open webcam (VideoCapture(0))")
+            return
         try:
             while not self._stop.is_set():
                 ret, frame = cap.read()
                 if not ret:
                     self._stop.wait(0.5)
                     continue
+                self.latest_frame = frame  # raw feed visible immediately
                 self._process_frame(frame)
                 self._stop.wait(0.2)
         finally:
@@ -122,6 +126,7 @@ class CameraMonitor:
 
     def _process_frame(self, frame: np.ndarray) -> None:
         try:
+            self.latest_frame = frame  # show raw feed immediately while YOLO runs
             det_results = self._model_detect(frame, verbose=False, conf=0.1)
             phone_box = _extract_phone(det_results)
 
