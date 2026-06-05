@@ -104,16 +104,30 @@ class CameraMonitor:
             thread.join(timeout=5)
 
     def _loop(self) -> None:
+        # Open camera and load models concurrently — camera takes ~10s on some Windows drivers
+        _cap_ready = threading.Event()
+        _cap_holder: list = [None]
+
+        def _open_camera():
+            _cap_holder[0] = cv2.VideoCapture(0)
+            _cap_ready.set()
+
+        threading.Thread(target=_open_camera, daemon=True).start()
+
         try:
             self._load_models()
         except Exception as e:
             _log.error("Failed to load YOLO models: %s", e)
             return
-        cap = cv2.VideoCapture(0)
-        if not cap.isOpened():
+
+        _log.info("Waiting for webcam to initialize...")
+        _cap_ready.wait(timeout=30)
+        cap = _cap_holder[0]
+        if cap is None or not cap.isOpened():
             _log.error("Could not open webcam (VideoCapture(0))")
             return
-        # Run YOLO inference in a separate thread so capture stays smooth
+
+        _log.info("Webcam ready")
         _infer_thread = threading.Thread(target=self._infer_loop, daemon=True)
         _infer_thread.start()
         try:

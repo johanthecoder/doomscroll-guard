@@ -22,6 +22,7 @@ def build_dashboard(page: ft.Page, session, config: Config) -> ft.Control:
         border_radius=8,
     )
 
+    camera_status = ft.Text("Camera initializing (~10s)...", size=11, color=ft.colors.GREY_500)
     status_text = ft.Text("IDLE", size=12, color=ft.colors.GREY_400)
     timer_text = ft.Text("00:00:00", size=32, weight=ft.FontWeight.BOLD)
     streak_text = ft.Text("", size=13, color=ft.colors.ORANGE_300)
@@ -103,6 +104,9 @@ def build_dashboard(page: ft.Page, session, config: Config) -> ft.Control:
                 # Camera feed — every 200ms, update only that control
                 frame = session._camera_monitor.latest_frame
                 if frame is not None:
+                    if camera_status.visible:
+                        camera_status.visible = False
+                        camera_status.update()
                     camera_img.src_base64 = frame_to_b64(frame)
                     camera_img.update()
 
@@ -126,8 +130,8 @@ def build_dashboard(page: ft.Page, session, config: Config) -> ft.Control:
     threading.Thread(target=_update_loop, daemon=True).start()
 
     left_col = ft.Column(
-        [camera_img, status_text],
-        spacing=6,
+        [camera_img, camera_status, status_text],
+        spacing=4,
     )
 
     right_col = ft.Column(
