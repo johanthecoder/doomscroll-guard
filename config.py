@@ -31,8 +31,11 @@ def load_config(path: str) -> Config:
         with open(path) as f:
             data = json.load(f)
         defaults.update(data)
+        # Replace None values with field defaults (handles null in JSON)
+        fallback = asdict(Config())
+        defaults = {k: (v if v is not None else fallback[k]) for k, v in defaults.items()}
         return Config(**{k: v for k, v in defaults.items() if k in Config.__dataclass_fields__})
-    except Exception:
+    except (json.JSONDecodeError, IOError, OSError, TypeError, ValueError):
         return Config()
 
 

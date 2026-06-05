@@ -7,12 +7,15 @@ from config import Config, load_config, save_config
 def test_defaults():
     c = Config()
     assert c.blocked_domains == ["instagram.com", "tiktok.com", "x.com", "reddit.com", "youtube.com"]
+    assert c.blocked_apps == []
     assert c.grace_seconds == 10
     assert c.nudge_seconds == 30
     assert c.cooldown_seconds == 60
     assert c.exit_grace_seconds == 5
     assert c.camera_enabled is True
     assert c.wrist_phone_threshold == 0.15
+    assert c.camera_phone_area_max == 0.20
+    assert c.alarm_wav_path == "assets/alarm.wav"
     assert c.pomodoro_focus_minutes == 25
     assert c.pomodoro_break_minutes == 5
 
